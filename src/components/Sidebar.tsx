@@ -211,7 +211,6 @@ export default function Sidebar({
           <div className="flex items-center justify-center gap-3 text-[11px]">
             <a
               href="https://page.roooooyan.work"
-              target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 text-slate-500 hover:text-teal-400 transition-colors"
             >
@@ -221,7 +220,6 @@ export default function Sidebar({
             <span className="text-slate-700">·</span>
             <a
               href="https://github.com/ruoyan812/cloudchat"
-              target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 text-slate-500 hover:text-teal-400 transition-colors"
             >
