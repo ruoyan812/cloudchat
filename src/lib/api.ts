@@ -6,11 +6,12 @@ import type { ChatMessage, Conversation } from '../types';
 export async function* streamChat(
   messages: ChatMessage[],
   signal?: AbortSignal,
+  model?: string,
 ): AsyncGenerator<string> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify(model ? { messages, model } : { messages }),
     signal,
   });
 

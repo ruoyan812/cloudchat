@@ -17,6 +17,7 @@
   ],
   "vars": {
     "CHAT_MODEL": "@cf/meta/llama-3.2-3b-instruct",
-    "SITE_NAME": "Yanverse"
+    "SITE_NAME": "Yanverse",
+    "OLLAMA_BASE_URL": "https://api.ai.roooooyan.work:11434/v1"
   }
 }

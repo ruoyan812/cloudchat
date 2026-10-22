@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, Square } from 'lucide-react';
+import { MODELS } from '../lib/models';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
   onStop: () => void;
   isGenerating: boolean;
+  model: string;
+  onModelChange: (model: string) => void;
 }
 
-export default function ChatInput({ onSend, onStop, isGenerating }: ChatInputProps) {
+export default function ChatInput({
+  onSend,
+  onStop,
+  isGenerating,
+  model,
+  onModelChange,
+}: ChatInputProps) {
   const [value, setValue] = useState('');
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -36,6 +45,25 @@ export default function ChatInput({ onSend, onStop, isGenerating }: ChatInputPro
   return (
     <div className="shrink-0 border-t border-slate-200 bg-white/80 backdrop-blur px-4 py-3">
       <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            模型
+            <select
+              value={model}
+              onChange={(e) => onModelChange(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:border-teal-400"
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="text-[11px] text-slate-400">
+            {model.startsWith('local/') ? '由自托管 Ollama 提供支持' : '由 Cloudflare Workers AI 提供支持'}
+          </span>
+        </div>
         <div className="flex items-end gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2 shadow-sm transition-all focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-500/10">
           <textarea
             ref={taRef}
@@ -68,7 +96,7 @@ export default function ChatInput({ onSend, onStop, isGenerating }: ChatInputPro
           )}
         </div>
         <p className="text-center text-[11px] text-slate-400 mt-2">
-          AI 生成内容仅供参考 · 由 Cloudflare Workers AI 提供支持
+          AI 生成内容仅供参考 · {model.startsWith('local/') ? '自托管 Ollama 模型' : 'Cloudflare Workers AI 模型'}
         </p>
       </div>
     </div>
