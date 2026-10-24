@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Sparkles, Copy, Check } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { ChatMessage } from '../types';
@@ -52,7 +52,7 @@ function SelectBox({
   );
 }
 
-/** 复制按钮：默认隐藏，鼠标悬停整条消息时淡入显示 */
+/** 复制按钮：默认隐藏，鼠标悬停整条消息时淡入显示，位于气泡下方，点击后变为「已复制」 */
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -68,11 +68,10 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      aria-label="复制"
-      title="复制"
-      className="absolute top-2 right-2 p-1 rounded-md bg-white/85 hover:bg-white text-slate-400 hover:text-teal-600 shadow-sm border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
+      aria-label={copied ? '已复制' : '点击复制'}
+      className="mt-1 text-[12px] text-slate-400 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity"
     >
-      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? '已复制' : '点击复制'}
     </button>
   );
 }
@@ -91,8 +90,10 @@ export default function MessageItem({ message, streaming, selected, onToggleSele
     return (
       <div className="flex justify-end animate-fade-up items-start gap-2 group">
         <SelectBox selected={selected} onToggle={onToggleSelect} />
-        <div className="relative max-w-[85%] bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm">
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+        <div className="flex flex-col items-end">
+          <div className="max-w-[85%] bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm">
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+          </div>
           {showCopy && <CopyButton text={message.content} />}
         </div>
       </div>
@@ -106,8 +107,8 @@ export default function MessageItem({ message, streaming, selected, onToggleSele
       <div className="w-8 h-8 rounded-full bg-slate-800 text-teal-300 flex items-center justify-center shrink-0 mt-0.5">
         <Sparkles className="w-4 h-4" />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="relative bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
+      <div className="flex-1 min-w-0 flex flex-col items-start">
+        <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
           {message.content ? (
             <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
           ) : (
@@ -116,8 +117,8 @@ export default function MessageItem({ message, streaming, selected, onToggleSele
           {streaming && message.content && (
             <span className="inline-block w-[3px] h-4 bg-teal-500 ml-0.5 align-text-bottom animate-blink" />
           )}
-          {showCopy && <CopyButton text={message.content} />}
         </div>
+        {showCopy && <CopyButton text={message.content} />}
       </div>
     </div>
   );
