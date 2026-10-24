@@ -38,9 +38,9 @@ export const WORKERS_AI_CATALOG: { id: string; label: string }[] = [
   { id: '@cf/meta/llama-3.2-3b-instruct', label: 'Workers AI · Llama 3.2 3B' },
   { id: '@cf/meta/llama-3.1-8b-instruct', label: 'Workers AI · Llama 3.1 8B' },
   { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'Workers AI · Llama 3.3 70B' },
-  { id: '@cf/mistralai/mistral-7b-instruct-v0.1', label: 'Workers AI · Mistral 7B' },
-  { id: '@cf/qwen/qwen1.5-7b-chat', label: 'Workers AI · Qwen 1.5 7B' },
-  { id: '@cf/google/gemma-2-9b-it', label: 'Workers AI · Gemma 2 9B' },
+  { id: '@cf/mistralai/mistral-small-3.1-24b-instruct', label: 'Workers AI · Mistral Small 3.1 24B' },
+  { id: '@cf/qwen/qwen3-30b-a3b-fp8', label: 'Workers AI · Qwen3 30B' },
+  { id: '@cf/google/gemma-4-26b-a4b-it', label: 'Workers AI · Gemma 4 26B' },
 ];
 
 /** 拉取当前已启用的模型列表（公开接口） */

@@ -18,6 +18,6 @@ VALUES
   ('@cf/meta/llama-3.2-3b-instruct', 'workers-ai', 'Workers AI · Llama 3.2 3B', '@cf/meta/llama-3.2-3b-instruct', 1, 10, 0, 0),
   ('@cf/meta/llama-3.1-8b-instruct', 'workers-ai', 'Workers AI · Llama 3.1 8B', '@cf/meta/llama-3.1-8b-instruct', 0, 20, 0, 0),
   ('@cf/meta/llama-3.3-70b-instruct-fp8-fast', 'workers-ai', 'Workers AI · Llama 3.3 70B', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', 0, 30, 0, 0),
-  ('@cf/mistralai/mistral-7b-instruct-v0.1', 'workers-ai', 'Workers AI · Mistral 7B', '@cf/mistralai/mistral-7b-instruct-v0.1', 0, 40, 0, 0),
-  ('@cf/qwen/qwen1.5-7b-chat', 'workers-ai', 'Workers AI · Qwen 1.5 7B', '@cf/qwen/qwen1.5-7b-chat', 0, 50, 0, 0),
-  ('@cf/google/gemma-2-9b-it', 'workers-ai', 'Workers AI · Gemma 2 9B', '@cf/google/gemma-2-9b-it', 0, 60, 0, 0);
+  ('@cf/mistralai/mistral-small-3.1-24b-instruct', 'workers-ai', 'Workers AI · Mistral Small 3.1 24B', '@cf/mistralai/mistral-small-3.1-24b-instruct', 0, 40, 0, 0),
+  ('@cf/qwen/qwen3-30b-a3b-fp8', 'workers-ai', 'Workers AI · Qwen3 30B', '@cf/qwen/qwen3-30b-a3b-fp8', 0, 50, 0, 0),
+  ('@cf/google/gemma-4-26b-a4b-it', 'workers-ai', 'Workers AI · Gemma 4 26B', '@cf/google/gemma-4-26b-a4b-it', 0, 60, 0, 0);
