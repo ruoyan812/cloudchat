@@ -5,9 +5,11 @@ import MessageItem from './MessageItem';
 interface ChatWindowProps {
   messages: ChatMessage[];
   isGenerating: boolean;
+  selected?: Set<number>;
+  onToggleSelect?: (index: number) => void;
 }
 
-export default function ChatWindow({ messages, isGenerating }: ChatWindowProps) {
+export default function ChatWindow({ messages, isGenerating, selected, onToggleSelect }: ChatWindowProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const lastContent = messages[messages.length - 1]?.content;
 
@@ -24,6 +26,8 @@ export default function ChatWindow({ messages, isGenerating }: ChatWindowProps) 
             key={i}
             message={m}
             streaming={isGenerating && i === messages.length - 1 && m.role === 'assistant'}
+            selected={selected?.has(i)}
+            onToggleSelect={onToggleSelect ? () => onToggleSelect(i) : undefined}
           />
         ))}
         <div ref={endRef} />

@@ -23,9 +23,36 @@ function TypingDots() {
 interface MessageItemProps {
   message: ChatMessage;
   streaming: boolean;
+  /** 是否处于「多选分享」模式，传入则在每条消息前显示勾选框 */
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export default function MessageItem({ message, streaming }: MessageItemProps) {
+function SelectBox({
+  selected,
+  onToggle,
+}: {
+  selected?: boolean;
+  onToggle?: () => void;
+}) {
+  if (!onToggle) return null;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={selected ? '取消选择' : '选择该消息'}
+      className={`mt-0.5 w-5 h-5 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
+        selected
+          ? 'bg-teal-500 border-teal-500 text-white'
+          : 'border-slate-300 text-transparent hover:border-teal-400'
+      }`}
+    >
+      <Check className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+export default function MessageItem({ message, streaming, selected, onToggleSelect }: MessageItemProps) {
   const [copied, setCopied] = useState(false);
 
   const html = useMemo(() => {
@@ -47,7 +74,8 @@ export default function MessageItem({ message, streaming }: MessageItemProps) {
   // 用户消息：右对齐渐变色气泡
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end animate-fade-up">
+      <div className="flex justify-end animate-fade-up items-start gap-2">
+        <SelectBox selected={selected} onToggle={onToggleSelect} />
         <div className="max-w-[85%] bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm">
           <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
         </div>
@@ -57,7 +85,8 @@ export default function MessageItem({ message, streaming }: MessageItemProps) {
 
   // 助手消息：左对齐白色卡片
   return (
-    <div className="flex gap-3 animate-fade-up">
+    <div className="flex gap-3 animate-fade-up items-start">
+      <SelectBox selected={selected} onToggle={onToggleSelect} />
       <div className="w-8 h-8 rounded-full bg-slate-800 text-teal-300 flex items-center justify-center shrink-0 mt-0.5">
         <Sparkles className="w-4 h-4" />
       </div>

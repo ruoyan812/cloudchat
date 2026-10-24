@@ -6,6 +6,7 @@ import {
   LogIn as LogInIcon,
   Shield as ShieldIcon,
   Settings as SettingsIcon,
+  Share2 as Share2Icon,
 } from 'lucide-react';
 import type { ChatMessage, Conversation } from './types';
 import { streamChat, uid, fetchRemoteConversations, pushRemoteConversations } from './lib/api';
@@ -19,6 +20,8 @@ import AuthModal from './components/AuthModal';
 import SettingsModal from './components/SettingsModal';
 import AdminPanel from './components/AdminPanel';
 import NoticeModal from './components/NoticeModal';
+import ShareModal from './components/ShareModal';
+import ShareView from './components/ShareView';
 
 const STORAGE_KEY = 'cloudchat.conversations.v1';
 
@@ -62,6 +65,11 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('share') || null,
+  );
   const [model, setModel] = useState<string>(
     () => localStorage.getItem('cloudchat.model') || DEFAULT_MODEL_ID,
   );
@@ -78,6 +86,7 @@ export default function App() {
   const pulledRef = useRef(false);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
+  const selectedMessages = active ? active.messages.filter((_, i) => selected.has(i)) : [];
 
   // 默认选中第一个会话
   useEffect(() => {
@@ -85,6 +94,11 @@ export default function App() {
       setActiveId(conversations[0].id);
     }
   }, [conversations, activeId]);
+
+  // 切换会话时清空多选
+  useEffect(() => {
+    setSelected(new Set());
+  }, [activeId]);
 
   // 持久化到 localStorage
   useEffect(() => {
@@ -216,10 +230,29 @@ export default function App() {
     abortRef.current?.abort();
   }, []);
 
+  const toggleSelect = useCallback((i: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }, []);
+
+  const handleShareClick = useCallback(() => {
+    if (!user) {
+      window.alert('分享对话需要先登录');
+      return;
+    }
+    setShareOpen(true);
+  }, [user]);
+
   const sendMessage = useCallback(
     async (rawContent: string) => {
       const content = rawContent.trim();
       if (!content || isGenerating) return;
+      // 发送新消息前清空多选，避免索引错位
+      setSelected(new Set());
 
       // 若当前没有活动会话，则创建新会话
       let convId = activeId;
@@ -288,6 +321,19 @@ export default function App() {
     [active, activeId, isGenerating, updateConversation, model],
   );
 
+  // 打开别人发来的分享链接时，直接渲染只读分享页
+  if (shareId) {
+    return (
+      <ShareView
+        id={shareId}
+        onBack={() => {
+          window.history.replaceState({}, '', window.location.pathname);
+          setShareId(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       <Sidebar
@@ -334,6 +380,16 @@ export default function App() {
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
               {MODELS.find((m) => m.id === model)?.label ?? 'Cloudflare Workers AI'}
             </span>
+            {selected.size > 0 && active && (
+              <button
+                onClick={handleShareClick}
+                className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-teal-600 hover:bg-teal-50 rounded-lg px-2.5 py-1.5 transition-colors"
+                title="分享选中的对话"
+              >
+                <Share2Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">分享({selected.size})</span>
+              </button>
+            )}
             {user ? (
               <div className="flex items-center gap-1.5 pl-1.5">
                 {user.role === 'admin' && (
@@ -391,7 +447,12 @@ export default function App() {
 
         {/* 内容区 */}
         {active && active.messages.length > 0 ? (
-          <ChatWindow messages={active.messages} isGenerating={isGenerating} />
+          <ChatWindow
+            messages={active.messages}
+            isGenerating={isGenerating}
+            selected={selected}
+            onToggleSelect={toggleSelect}
+          />
         ) : (
           <WelcomeScreen onPick={sendMessage} onNew={newConversation} />
         )}
@@ -427,6 +488,15 @@ export default function App() {
       />
 
       <NoticeModal />
+
+      <ShareModal
+        open={shareOpen}
+        onClose={() => {
+          setShareOpen(false);
+          setSelected(new Set());
+        }}
+        messages={selectedMessages}
+      />
     </div>
   );
 }
