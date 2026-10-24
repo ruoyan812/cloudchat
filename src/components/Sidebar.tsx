@@ -12,8 +12,10 @@ import {
   Shield,
   Settings,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { Conversation } from '../types';
 import type { User } from '../lib/auth';
+import { getTimezone, type TimezoneInfo } from '../lib/timezone';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -31,17 +33,34 @@ interface SidebarProps {
   onOpenSettings: () => void;
 }
 
-function formatTime(ts: number): string {
+function formatTime(ts: number, tz?: TimezoneInfo | null): string {
   const d = new Date(ts);
-  const offsetMin = -d.getTimezoneOffset(); // 分钟，东区为正
-  const sign = offsetMin >= 0 ? '+' : '-';
-  const abs = Math.abs(offsetMin);
-  const oh = Math.floor(abs / 60);
-  const om = abs % 60;
-  const offsetStr = `UTC${sign}${oh}${om ? ':' + String(om).padStart(2, '0') : ''}`;
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mm = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${offsetStr} ${hh}:${mm}`;
+  // 偏移部分：优先使用 IP 判断的时区，否则回退到本地时区
+  const offset = tz
+    ? `UTC${tz.utc}`
+    : (() => {
+        const offsetMin = -d.getTimezoneOffset();
+        const sign = offsetMin >= 0 ? '+' : '-';
+        const abs = Math.abs(offsetMin);
+        const oh = Math.floor(abs / 60);
+        const om = abs % 60;
+        return `UTC${sign}${oh}${om ? ':' + String(om).padStart(2, '0') : ''}`;
+      })();
+  // 时间部分：若有时区则按该时区格式化，否则用 UTC 时刻
+  let hhmm = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  if (tz?.id) {
+    try {
+      hhmm = new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz.id,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(d);
+    } catch {
+      /* 忽略，沿用 UTC 时刻 */
+    }
+  }
+  return `${offset} ${hhmm}`;
 }
 
 export default function Sidebar({
@@ -59,6 +78,19 @@ export default function Sidebar({
   onOpenAdmin,
   onOpenSettings,
 }: SidebarProps) {
+  const [tz, setTz] = useState<TimezoneInfo | null>(null);
+
+  // 通过访问者 IP 所在国家/地区判断时区
+  useEffect(() => {
+    let alive = true;
+    getTimezone().then((t) => {
+      if (alive && t) setTz(t);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <>
       {/* 移动端遮罩 */}
@@ -131,7 +163,7 @@ export default function Sidebar({
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] truncate">{c.title}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  {formatTime(c.updatedAt)}
+                  {formatTime(c.updatedAt, tz)}
                   {c.messages.length > 0 && ` · ${Math.ceil(c.messages.length / 2)} 轮`}
                 </p>
               </div>
