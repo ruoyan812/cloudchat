@@ -25,6 +25,7 @@ import {
   type OAuthProviderConfig,
   type AdminUser,
 } from '../lib/admin';
+import { fetchAllShares, deleteShare, type AdminShare } from '../lib/api';
 import EditUserModal from './EditUserModal';
 
 interface AdminPanelProps {
@@ -52,7 +53,7 @@ const inputCls =
 const labelCls = 'block text-xs text-slate-400 mb-1';
 
 export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
-  const [tab, setTab] = useState<'oauth' | 'users'>('oauth');
+  const [tab, setTab] = useState<'oauth' | 'users' | 'shares'>('oauth');
   const [drafts, setDrafts] = useState<OAuthDraft[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,11 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+
+  // 分享管理
+  const [shares, setShares] = useState<AdminShare[]>([]);
+  const [loadingShares, setLoadingShares] = useState(false);
+  const [deletingShareId, setDeletingShareId] = useState<string | null>(null);
 
   // 新建用户表单
   const [newUsername, setNewUsername] = useState('');
@@ -109,13 +115,25 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
     }
   }, [flash]);
 
+  const loadShares = useCallback(async () => {
+    setLoadingShares(true);
+    try {
+      setShares(await fetchAllShares());
+    } catch (err) {
+      flash('err', err instanceof Error ? err.message : '读取分享列表失败');
+    } finally {
+      setLoadingShares(false);
+    }
+  }, [flash]);
+
   useEffect(() => {
     if (!open) return;
     setMessage(null);
     setTab('oauth');
     void loadOAuth();
     void loadUsers();
-  }, [open, loadOAuth, loadUsers]);
+    void loadShares();
+  }, [open, loadOAuth, loadUsers, loadShares]);
 
   async function handleSaveOAuth() {
     setSaving(true);
@@ -181,6 +199,31 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
     }
   }
 
+  async function copyShareLink(id: string) {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/?share=${id}`);
+      flash('ok', '分享链接已复制到剪贴板');
+    } catch {
+      flash('err', '复制失败，请手动复制链接');
+    }
+  }
+
+  async function handleDeleteShare(id: string) {
+    if (!window.confirm('确定要删除该分享链接吗？删除后任何人都无法再访问，此操作不可恢复。')) {
+      return;
+    }
+    setDeletingShareId(id);
+    try {
+      await deleteShare(id);
+      flash('ok', '分享已删除');
+      setShares((prev) => prev.filter((s) => s.id !== id));
+    } catch (err) {
+      flash('err', err instanceof Error ? err.message : '删除失败');
+    } finally {
+      setDeletingShareId(null);
+    }
+  }
+
   if (!open) return null;
 
   const isAdmin = user?.role === 'admin';
@@ -234,6 +277,18 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
             <UsersIcon className="w-4 h-4" />
             用户管理
             <span className="text-[10px] bg-slate-700 rounded-full px-1.5 py-0.5">{users.length}</span>
+          </button>
+          <button
+            onClick={() => setTab('shares')}
+            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+              tab === 'shares'
+                ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                : 'text-slate-400 hover:text-slate-200 border border-transparent'
+            }`}
+          >
+            <Link2 className="w-4 h-4" />
+            分享管理
+            <span className="text-[10px] bg-slate-700 rounded-full px-1.5 py-0.5">{shares.length}</span>
           </button>
         </div>
 
@@ -390,6 +445,77 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
                     </>
                   )}
                 </button>
+              </div>
+            ) : tab === 'shares' ? (
+              <div className="space-y-5">
+                <div className="rounded-xl bg-slate-800/40 border border-slate-700/50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-700/50">
+                    <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+                      <Link2 className="w-4 h-4 text-teal-400" />
+                      全部分享链接（{shares.length}）
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      这里展示所有用户生成的分享。可一键复制链接，或删除使该链接立即失效。
+                    </p>
+                  </div>
+                  {loadingShares && shares.length === 0 ? (
+                    <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-10">
+                      <Loader2 className="w-4 h-4 animate-spin" /> 加载中…
+                    </div>
+                  ) : shares.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-8">暂无分享链接</p>
+                  ) : (
+                    <div className="divide-y divide-slate-700/40">
+                      {shares.map((s) => (
+                        <div key={s.id} className="px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] text-white font-medium truncate flex items-center gap-2">
+                                {s.username}
+                                <span className="text-[10px] text-slate-500 font-normal">
+                                  {s.messageCount} 条 ·{' '}
+                                  {new Date(s.createdAt).toLocaleString('zh-CN')}
+                                </span>
+                              </p>
+                              <p className="text-[12px] text-slate-400 truncate mt-0.5">
+                                {s.preview || '(无内容)'}
+                              </p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {s.expiresAt > 0
+                                  ? `将于 ${new Date(s.expiresAt).toLocaleString('zh-CN')} 过期`
+                                  : '永久有效'}
+                                {' · '}ID: {s.id}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => copyShareLink(s.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-teal-400 hover:bg-slate-700/60 transition-colors"
+                                aria-label="复制链接"
+                                title="复制分享链接"
+                              >
+                                <Link2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteShare(s.id)}
+                                disabled={deletingShareId === s.id}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 transition-colors disabled:opacity-40"
+                                aria-label="删除分享"
+                                title="删除该分享"
+                              >
+                                {deletingShareId === s.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-5">

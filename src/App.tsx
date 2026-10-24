@@ -66,6 +66,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareId, setShareId] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get('share') || null,
@@ -95,9 +96,10 @@ export default function App() {
     }
   }, [conversations, activeId]);
 
-  // 切换会话时清空多选
+  // 切换会话时退出选择模式并清空多选
   useEffect(() => {
     setSelected(new Set());
+    setSelectMode(false);
   }, [activeId]);
 
   // 持久化到 localStorage
@@ -239,20 +241,32 @@ export default function App() {
     });
   }, []);
 
+  const enterSelectMode = useCallback(() => {
+    setSelected(new Set());
+    setSelectMode(true);
+  }, []);
+
+  const cancelSelect = useCallback(() => {
+    setSelected(new Set());
+    setSelectMode(false);
+  }, []);
+
   const handleShareClick = useCallback(() => {
+    if (selected.size === 0) return;
     if (!user) {
       window.alert('分享对话需要先登录');
       return;
     }
     setShareOpen(true);
-  }, [user]);
+  }, [user, selected]);
 
   const sendMessage = useCallback(
     async (rawContent: string) => {
       const content = rawContent.trim();
       if (!content || isGenerating) return;
-      // 发送新消息前清空多选，避免索引错位
+      // 发送新消息前退出选择模式并清空多选，避免索引错位
       setSelected(new Set());
+      setSelectMode(false);
 
       // 若当前没有活动会话，则创建新会话
       let convId = activeId;
@@ -380,15 +394,35 @@ export default function App() {
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
               {MODELS.find((m) => m.id === model)?.label ?? 'Cloudflare Workers AI'}
             </span>
-            {selected.size > 0 && active && (
+            {active && active.messages.length > 0 && !selectMode && (
               <button
-                onClick={handleShareClick}
+                onClick={enterSelectMode}
                 className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-teal-600 hover:bg-teal-50 rounded-lg px-2.5 py-1.5 transition-colors"
-                title="分享选中的对话"
+                title="选择消息进行分享"
               >
                 <Share2Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">分享({selected.size})</span>
+                <span className="hidden sm:inline">分享</span>
               </button>
+            )}
+            {selectMode && (
+              <>
+                <button
+                  onClick={cancelSelect}
+                  className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg px-2.5 py-1.5 transition-colors"
+                  title="取消选择"
+                >
+                  <span className="hidden sm:inline">取消</span>
+                </button>
+                <button
+                  onClick={handleShareClick}
+                  disabled={selected.size === 0}
+                  className="flex items-center gap-1.5 text-sm text-white bg-teal-500 hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg px-2.5 py-1.5 transition-colors"
+                  title="完成分享"
+                >
+                  <Share2Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">完成({selected.size})</span>
+                </button>
+              </>
             )}
             {user ? (
               <div className="flex items-center gap-1.5 pl-1.5">
@@ -450,8 +484,8 @@ export default function App() {
           <ChatWindow
             messages={active.messages}
             isGenerating={isGenerating}
-            selected={selected}
-            onToggleSelect={toggleSelect}
+            selected={selectMode ? selected : undefined}
+            onToggleSelect={selectMode ? toggleSelect : undefined}
           />
         ) : (
           <WelcomeScreen onPick={sendMessage} onNew={newConversation} />
@@ -494,6 +528,7 @@ export default function App() {
         onClose={() => {
           setShareOpen(false);
           setSelected(new Set());
+          setSelectMode(false);
         }}
         messages={selectedMessages}
       />

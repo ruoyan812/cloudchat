@@ -126,3 +126,34 @@ export async function getShare(
     expiresAt: data.expiresAt ?? 0,
   };
 }
+
+/** 管理员视角下的单条分享记录 */
+export interface AdminShare {
+  id: string;
+  username: string;
+  userId: string;
+  createdAt: number;
+  expiresAt: number;
+  messageCount: number;
+  preview: string;
+}
+
+/** 管理员：获取全部分享链接 */
+export async function fetchAllShares(): Promise<AdminShare[]> {
+  const res = await fetch('/api/admin/shares');
+  const data = (await res.json().catch(() => ({}))) as {
+    shares?: AdminShare[];
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error || '获取分享列表失败');
+  return data.shares ?? [];
+}
+
+/** 管理员：删除指定分享链接 */
+export async function deleteShare(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/shares/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || '删除失败');
+}
