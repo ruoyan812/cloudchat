@@ -33,12 +33,15 @@ interface SidebarProps {
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) {
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  }
-  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  const offsetMin = -d.getTimezoneOffset(); // 分钟，东区为正
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMin);
+  const oh = Math.floor(abs / 60);
+  const om = abs % 60;
+  const offsetStr = `UTC${sign}${oh}${om ? ':' + String(om).padStart(2, '0') : ''}`;
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${offsetStr} ${hh}:${mm}`;
 }
 
 export default function Sidebar({
