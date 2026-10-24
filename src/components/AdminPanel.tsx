@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   ChevronRight,
   Pencil,
+  Cpu,
+  Globe,
 } from 'lucide-react';
 import type { User } from '../lib/auth';
 import {
@@ -22,11 +24,45 @@ import {
   fetchUsers,
   createAdminUser,
   deleteAdminUser,
+  fetchAdminModels,
+  saveAdminModels,
+  deleteAdminModel,
   type OAuthProviderConfig,
   type AdminUser,
+  type AdminModel,
 } from '../lib/admin';
 import { fetchAllShares, deleteShare, type AdminShare } from '../lib/api';
+import { WORKERS_AI_CATALOG } from '../lib/models';
 import EditUserModal from './EditUserModal';
+
+/** 可复用开关 */
+function Switch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative w-10 rounded-full transition-colors ${checked ? 'bg-teal-500' : 'bg-slate-600'}`}
+      style={{ height: '22px' }}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-5' : ''
+        }`}
+      />
+    </button>
+  );
+}
 
 interface AdminPanelProps {
   open: boolean;
@@ -53,7 +89,7 @@ const inputCls =
 const labelCls = 'block text-xs text-slate-400 mb-1';
 
 export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
-  const [tab, setTab] = useState<'oauth' | 'users' | 'shares'>('oauth');
+  const [tab, setTab] = useState<'oauth' | 'users' | 'shares' | 'models'>('oauth');
   const [drafts, setDrafts] = useState<OAuthDraft[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +102,12 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
   const [shares, setShares] = useState<AdminShare[]>([]);
   const [loadingShares, setLoadingShares] = useState(false);
   const [deletingShareId, setDeletingShareId] = useState<string | null>(null);
+
+  // 模型配置
+  const [modelConfigs, setModelConfigs] = useState<AdminModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [savingModels, setSavingModels] = useState(false);
+  const [newModel, setNewModel] = useState({ label: '', baseUrl: '', apiKey: '', modelName: '' });
 
   // 新建用户表单
   const [newUsername, setNewUsername] = useState('');
@@ -126,6 +168,17 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
     }
   }, [flash]);
 
+  const loadModels = useCallback(async () => {
+    setLoadingModels(true);
+    try {
+      setModelConfigs(await fetchAdminModels());
+    } catch (err) {
+      flash('err', err instanceof Error ? err.message : '读取模型配置失败');
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [flash]);
+
   useEffect(() => {
     if (!open) return;
     setMessage(null);
@@ -133,7 +186,8 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
     void loadOAuth();
     void loadUsers();
     void loadShares();
-  }, [open, loadOAuth, loadUsers, loadShares]);
+    void loadModels();
+  }, [open, loadOAuth, loadUsers, loadShares, loadModels]);
 
   async function handleSaveOAuth() {
     setSaving(true);
@@ -224,6 +278,70 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
     }
   }
 
+  // —— 模型配置相关操作 ——
+  function toggleWorkerModel(c: { id: string; label: string }, index: number, enabled: boolean) {
+    setModelConfigs((prev) => {
+      const exists = prev.find((m) => m.id === c.id);
+      if (exists) {
+        return prev.map((m) => (m.id === c.id ? { ...m, enabled } : m));
+      }
+      return [
+        ...prev,
+        {
+          id: c.id,
+          provider: 'workers-ai',
+          label: c.label,
+          modelName: c.id,
+          baseUrl: '',
+          apiKey: '',
+          hasKey: false,
+          enabled,
+          sortOrder: (index + 1) * 10,
+        },
+      ];
+    });
+  }
+
+  function handleAddCustom() {
+    if (!newModel.label.trim() || !newModel.baseUrl.trim() || !newModel.modelName.trim()) {
+      flash('err', '请填写显示名称、接口地址与模型名称');
+      return;
+    }
+    const id = `custom/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    setModelConfigs((prev) => [
+      ...prev,
+      {
+        id,
+        provider: 'custom',
+        label: newModel.label.trim(),
+        modelName: newModel.modelName.trim(),
+        baseUrl: newModel.baseUrl.trim().replace(/\/$/, ''),
+        apiKey: newModel.apiKey,
+        hasKey: !!newModel.apiKey,
+        enabled: true,
+        sortOrder: 1000 + prev.length,
+      },
+    ]);
+    setNewModel({ label: '', baseUrl: '', apiKey: '', modelName: '' });
+  }
+
+  function handleDeleteCustom(id: string) {
+    setModelConfigs((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  async function handleSaveModels() {
+    setSavingModels(true);
+    try {
+      await saveAdminModels(modelConfigs);
+      flash('ok', '模型配置已保存');
+      await loadModels();
+    } catch (err) {
+      flash('err', err instanceof Error ? err.message : '保存失败');
+    } finally {
+      setSavingModels(false);
+    }
+  }
+
   if (!open) return null;
 
   const isAdmin = user?.role === 'admin';
@@ -241,7 +359,7 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
           <div className="flex-1 min-w-0">
             <h2 className="text-white font-bold text-base leading-tight">管理后台</h2>
             <p className="text-[11px] text-slate-400 leading-tight">
-              配置 OAuth 登录 · 管理用户账号
+              配置 OAuth 登录 · 管理用户账号 · 配置 AI 模型
             </p>
           </div>
           <button
@@ -289,6 +407,17 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
             <Link2 className="w-4 h-4" />
             分享管理
             <span className="text-[10px] bg-slate-700 rounded-full px-1.5 py-0.5">{shares.length}</span>
+          </button>
+          <button
+            onClick={() => setTab('models')}
+            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+              tab === 'models'
+                ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                : 'text-slate-400 hover:text-slate-200 border border-transparent'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            模型配置
           </button>
         </div>
 
@@ -445,6 +574,161 @@ export default function AdminPanel({ open, user, onClose }: AdminPanelProps) {
                     </>
                   )}
                 </button>
+              </div>
+            ) : tab === 'models' ? (
+              <div className="space-y-5">
+                <div className="flex items-start gap-2 text-[12px] text-slate-400 bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2.5">
+                  <Cpu className="w-4 h-4 shrink-0 mt-0.5 text-teal-400" />
+                  <p>
+                    在此开放 Cloudflare Workers AI 模型，或接入任意 OpenAI 兼容的自定义提供商。
+                    修改后点击底部「保存模型配置」生效。
+                  </p>
+                </div>
+
+                {loadingModels && modelConfigs.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-10">
+                    <Loader2 className="w-4 h-4 animate-spin" /> 加载中…
+                  </div>
+                ) : (
+                  <>
+                    {/* Worker AI */}
+                    <div className="rounded-xl bg-slate-800/40 border border-slate-700/50 p-4">
+                      <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-teal-400" />
+                        Cloudflare Workers AI
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-1 mb-3">
+                        AI 已在 Cloudflare 绑定，勾选需要开放给用户的模型。
+                      </p>
+                      <div className="space-y-2">
+                        {WORKERS_AI_CATALOG.map((c, i) => {
+                          const cfg = modelConfigs.find((m) => m.id === c.id);
+                          const enabled = cfg?.enabled ?? false;
+                          return (
+                            <div
+                              key={c.id}
+                              className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-lg px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-[13px] text-white truncate">{c.label}</p>
+                                <p className="text-[11px] text-slate-500 font-mono truncate">{c.id}</p>
+                              </div>
+                              <Switch
+                                checked={enabled}
+                                onChange={(v) => toggleWorkerModel(c, i, v)}
+                                label={c.label}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 自定义提供商 */}
+                    <div className="rounded-xl bg-slate-800/40 border border-slate-700/50 p-4 space-y-3">
+                      <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-teal-400" />
+                        自定义模型提供商（OpenAI 兼容）
+                      </h3>
+                      <p className="text-[11px] text-slate-500 -mt-1">
+                        填写接口地址、API Key 与模型名称，例如 OpenAI / 兼容端点 / 自建服务。
+                      </p>
+
+                      {modelConfigs.filter((m) => m.provider === 'custom').length > 0 && (
+                        <div className="space-y-2">
+                          {modelConfigs
+                            .filter((m) => m.provider === 'custom')
+                            .map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 bg-slate-900/40 rounded-lg px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-[13px] text-white truncate">{m.label}</p>
+                                  <p className="text-[11px] text-slate-500 font-mono truncate">
+                                    {m.baseUrl} · {m.modelName}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteCustom(m.id)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 transition-colors shrink-0"
+                                  aria-label={`删除 ${m.label}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className={labelCls}>显示名称</label>
+                          <input
+                            type="text"
+                            value={newModel.label}
+                            onChange={(e) => setNewModel((p) => ({ ...p, label: e.target.value }))}
+                            placeholder="例如：我的 GPT"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelCls}>模型名称</label>
+                          <input
+                            type="text"
+                            value={newModel.modelName}
+                            onChange={(e) => setNewModel((p) => ({ ...p, modelName: e.target.value }))}
+                            placeholder="例如：gpt-4o / qwen2.5"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelCls}>接口地址（OpenAI 兼容 base URL）</label>
+                          <input
+                            type="text"
+                            value={newModel.baseUrl}
+                            onChange={(e) => setNewModel((p) => ({ ...p, baseUrl: e.target.value }))}
+                            placeholder="https://api.openai.com/v1"
+                            className={inputCls}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelCls}>API Key（可选，留空则不携带鉴权）</label>
+                          <input
+                            type="password"
+                            value={newModel.apiKey}
+                            onChange={(e) => setNewModel((p) => ({ ...p, apiKey: e.target.value }))}
+                            placeholder="sk-..."
+                            className={inputCls}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleAddCustom}
+                        className="flex items-center gap-1.5 text-sm text-white bg-teal-500/15 border border-teal-500/40 hover:bg-teal-500/25 rounded-lg px-3 py-2 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        添加提供商
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleSaveModels}
+                      disabled={savingModels}
+                      className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium rounded-lg py-2.5 text-sm shadow-lg shadow-teal-500/25 transition-all active:scale-[0.99]"
+                    >
+                      {savingModels ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> 保存中…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" /> 保存模型配置
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             ) : tab === 'shares' ? (
               <div className="space-y-5">

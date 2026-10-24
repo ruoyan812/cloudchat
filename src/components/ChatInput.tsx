@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, Square } from 'lucide-react';
-import { MODELS } from '../lib/models';
+import type { ModelOption } from '../lib/models';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -8,6 +8,7 @@ interface ChatInputProps {
   isGenerating: boolean;
   model: string;
   onModelChange: (model: string) => void;
+  models: ModelOption[];
 }
 
 export default function ChatInput({
@@ -16,6 +17,7 @@ export default function ChatInput({
   isGenerating,
   model,
   onModelChange,
+  models,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -42,6 +44,9 @@ export default function ChatInput({
     }
   };
 
+  const isLocal = model.startsWith('local/');
+  const isCustom = !isLocal && models.find((m) => m.id === model)?.provider === 'custom';
+
   return (
     <div className="shrink-0 border-t border-slate-200 bg-white/80 backdrop-blur px-4 py-3">
       <div className="max-w-3xl mx-auto">
@@ -53,7 +58,7 @@ export default function ChatInput({
               onChange={(e) => onModelChange(e.target.value)}
               className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:border-teal-400"
             >
-              {MODELS.map((m) => (
+              {models.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
@@ -61,7 +66,11 @@ export default function ChatInput({
             </select>
           </label>
           <span className="text-[11px] text-slate-400">
-            {model.startsWith('local/') ? '由自托管 Ollama 提供支持，服务器响应较慢，见谅~' : '由 Cloudflare Workers AI 提供支持，反应较快但token不多，见谅~'}
+            {isLocal
+              ? '由自托管 Ollama 提供支持，服务器响应较慢，见谅~'
+              : isCustom
+              ? '由自定义模型提供商提供支持'
+              : '由 Cloudflare Workers AI 提供支持，反应较快但 token 不多，见谅~'}
           </span>
         </div>
         <div className="flex items-end gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2 shadow-sm transition-all focus-within:border-teal-400 focus-within:ring-4 focus-within:ring-teal-500/10">
@@ -96,7 +105,8 @@ export default function ChatInput({
           )}
         </div>
         <p className="text-center text-[11px] text-slate-400 mt-2">
-          AI 生成内容仅供参考 · {model.startsWith('local/') ? '自托管 Ollama 模型' : 'Cloudflare Workers AI 模型'}
+          AI 生成内容仅供参考 ·{' '}
+          {isLocal ? '自托管 Ollama 模型' : isCustom ? '自定义模型提供商' : 'Cloudflare Workers AI 模型'}
         </p>
       </div>
     </div>

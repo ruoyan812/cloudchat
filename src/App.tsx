@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { ChatMessage, Conversation } from './types';
 import { streamChat, uid, fetchRemoteConversations, pushRemoteConversations } from './lib/api';
-import { MODELS, DEFAULT_MODEL_ID } from './lib/models';
+import { fetchModels, DEFAULT_MODEL_ID, type ModelOption } from './lib/models';
 import { getMe, logout as apiLogout, type User } from './lib/auth';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
@@ -74,6 +74,14 @@ export default function App() {
   const [model, setModel] = useState<string>(
     () => localStorage.getItem('cloudchat.model') || DEFAULT_MODEL_ID,
   );
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+
+  // 拉取后端已启用的模型列表
+  useEffect(() => {
+    fetchModels()
+      .then(setModelOptions)
+      .catch(() => setModelOptions([]));
+  }, []);
 
   // 持久化当前选择的模型
   useEffect(() => {
@@ -83,6 +91,16 @@ export default function App() {
       /* ignore */
     }
   }, [model]);
+
+  // 模型列表加载后，校验当前选择是否仍有效
+  const modelValidated = useRef(false);
+  useEffect(() => {
+    if (modelValidated.current || modelOptions.length === 0) return;
+    modelValidated.current = true;
+    if (!modelOptions.some((m) => m.id === model)) {
+      setModel(modelOptions[0]?.id ?? DEFAULT_MODEL_ID);
+    }
+  }, [modelOptions, model]);
   const abortRef = useRef<AbortController | null>(null);
   const pulledRef = useRef(false);
 
@@ -392,7 +410,7 @@ export default function App() {
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-              {MODELS.find((m) => m.id === model)?.label ?? 'Cloudflare Workers AI'}
+              {modelOptions.find((m) => m.id === model)?.label ?? 'Cloudflare Workers AI'}
             </span>
             {active && active.messages.length > 0 && !selectMode && (
               <button
@@ -497,6 +515,7 @@ export default function App() {
           isGenerating={isGenerating}
           model={model}
           onModelChange={setModel}
+          models={modelOptions}
         />
       </main>
 

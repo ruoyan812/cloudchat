@@ -1,4 +1,5 @@
 import type { User } from './auth';
+import type { AdminModel } from './models';
 
 export interface OAuthProviderConfig {
   provider: string;
@@ -7,6 +8,42 @@ export interface OAuthProviderConfig {
   clientSecret: string;
   enabled: boolean;
   updatedAt: number;
+}
+
+/** 读取全部模型配置（含未启用，仅管理员） */
+export async function fetchAdminModels(): Promise<AdminModel[]> {
+  const res = await fetch('/api/admin/models');
+  const data = await handle<{ models: AdminModel[] }>(res);
+  return data.models ?? [];
+}
+
+/** 批量保存模型配置（apiKey 留空表示不修改） */
+export async function saveAdminModels(models: AdminModel[]): Promise<void> {
+  const res = await fetch('/api/admin/models', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      models: models.map((m) => ({
+        id: m.id,
+        provider: m.provider,
+        label: m.label,
+        modelName: m.modelName,
+        baseUrl: m.baseUrl,
+        apiKey: m.apiKey,
+        enabled: m.enabled,
+        sortOrder: m.sortOrder,
+      })),
+    }),
+  });
+  await handle<{ ok: boolean }>(res);
+}
+
+/** 删除指定模型 */
+export async function deleteAdminModel(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/models/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  await handle<{ ok: boolean }>(res);
 }
 
 export interface AdminUser {

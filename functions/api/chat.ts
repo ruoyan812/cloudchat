@@ -7,8 +7,11 @@
  *
  * 模型来源（通过 model 字段区分）：
  *  - @cf/... 开头        → Cloudflare Workers AI（默认，原有能力保留）
+ *  - custom/ 开头         → 自定义模型提供商（OpenAI 兼容），配置存于数据库
  *  - local/ 开头          → 自托管 Ollama（OpenAI 兼容端点），local/ 后面为 Ollama 模型名
  */
+
+import { getModelById } from '../_lib/models';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -17,6 +20,7 @@ export interface ChatMessage {
 
 interface Env {
   AI: Ai;
+  DB: D1Database;
   CHAT_MODEL?: string;
   SITE_NAME?: string;
   OLLAMA_BASE_URL?: string;
@@ -71,9 +75,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ...messages,
     ];
 
+    // 自定义模型提供商（以 custom/ 前缀标识），配置存于数据库，走 OpenAI 兼容代理
+    if (model.startsWith('custom/')) {
+      const cfg = await getModelById(env.DB, model);
+      if (!cfg || !cfg.enabled) {
+        return Response.json(
+          { error: '所选模型未启用或不存在' },
+          { status: 400, headers: CORS_HEADERS },
+        );
+      }
+      return proxyOpenAI(fullMessages, cfg.modelName, cfg.baseUrl, cfg.apiKey);
+    }
+
     // 自托管 Ollama 模型（以 local/ 前缀标识），走独立代理分支
     if (model.startsWith('local/')) {
-      return proxyOllama(fullMessages, model.slice('local/'.length), env);
+      return proxyOpenAI(
+        fullMessages,
+        model.slice('local/'.length),
+        env.OLLAMA_BASE_URL || 'https://api.ai.roooooyan.work:11434/v1',
+        env.OLLAMA_API_KEY,
+      );
     }
 
     const stream = (await env.AI.run(model, {
@@ -105,19 +126,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 /**
- * 代理到自托管的 OpenAI 兼容端点（Ollama）。
+ * 代理到任意 OpenAI 兼容端点（自定义提供商 / 自托管 Ollama）。
  * 入参 messages 已包含系统提示词，直接转发；
  * 把 OpenAI 的 SSE（data: {"choices":[{"delta":{"content":"..."}}]}）
  * 翻译成前端期望的格式（data: {"response":"..."}）。
  */
-async function proxyOllama(
+async function proxyOpenAI(
   messages: ChatMessage[],
   model: string,
-  env: Env,
+  baseUrl: string,
+  apiKey?: string,
 ): Promise<Response> {
-  const base = env.OLLAMA_BASE_URL || 'https://api.ai.roooooyan.work:11434/v1';
+  const base = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (env.OLLAMA_API_KEY) headers['Authorization'] = `Bearer ${env.OLLAMA_API_KEY}`;
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   const upstream = await fetch(`${base}/chat/completions`, {
     method: 'POST',
