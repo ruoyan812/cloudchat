@@ -2,8 +2,8 @@
  * 公开模型列表：返回已启用的模型（id / label / provider），供前端下拉框使用。
  * 不返回任何密钥或接口地址。
  */
-import { json, corsHeaders, type Env } from '../../_lib/auth';
-import { getEnabledModels } from '../../_lib/models';
+import { json, corsHeaders, type Env } from '../_lib/auth';
+import { getEnabledModels } from '../_lib/models';
 
 export const onRequestOptions: PagesFunction<Env> = async ({ request }) => {
   return new Response(null, { headers: corsHeaders(request) });
