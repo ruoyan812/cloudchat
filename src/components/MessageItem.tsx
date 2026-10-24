@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { ChatMessage } from '../types';
@@ -90,9 +90,9 @@ export default function MessageItem({ message, streaming, selected, onToggleSele
     return (
       <div className="flex justify-end animate-fade-up items-start gap-2 group">
         <SelectBox selected={selected} onToggle={onToggleSelect} />
-        <div className="flex flex-col items-end">
-          <div className="max-w-[85%] bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm">
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+        <div className="flex flex-col items-end max-w-[85%]">
+          <div className="w-full bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm">
+            <p className="whitespace-pre-wrap text-[15px] leading-relaxed break-words">{message.content}</p>
           </div>
           {showCopy && <CopyButton text={message.content} />}
         </div>
