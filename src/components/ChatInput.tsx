@@ -69,7 +69,7 @@ export default function ChatInput({
             {isLocal
               ? '由自托管 Ollama 提供支持，服务器响应较慢，见谅~'
               : isCustom
-              ? '由自定义模型提供商提供支持'
+              ? '由站主的模型提供支持'
               : '由 Cloudflare Workers AI 提供支持，反应较快但 token 不多，见谅~'}
           </span>
         </div>
@@ -106,7 +106,7 @@ export default function ChatInput({
         </div>
         <p className="text-center text-[11px] text-slate-400 mt-2">
           AI 生成内容仅供参考 ·{' '}
-          {isLocal ? '自托管 Ollama 模型' : isCustom ? '自定义模型提供商' : 'Cloudflare Workers AI 模型'}
+          {isLocal ? '自托管 Ollama 模型' : isCustom ? '站主的模型' : 'Cloudflare Workers AI 模型'}
         </p>
       </div>
     </div>
